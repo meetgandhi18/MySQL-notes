@@ -1,0 +1,17 @@
+docker run -d \
+  --name mysql-container \
+  -e MYSQL_ROOT_PASSWORD=root123 \
+  -p 3307:3306 \
+  mysql:8
+newgrp docker
+docker ps
+docker ps -a
+docker exec -it mysql-container mysql -u root -p
+    password:root123
+docker restart mysql-container
+
+Partition by can be used inside select clause and order by clause
+
+Nesting Winodw Function Not allowed!!
+
+Window Function can be used together with GROUP BY in the same query, ONLY if the same columns are used
