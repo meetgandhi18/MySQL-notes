@@ -1366,10 +1366,3 @@ Step 5
 ## Generated Column
 
 ------------------------------------------------------------------------
-
-## 🚀 Final Summary
-
-You covered: - Execution flow - Joins - Filtering - Grouping - Window
-functions - Subqueries (IN, EXISTS, ANY, ALL) - Optimization
-
-Practice writing queries daily 🔥
