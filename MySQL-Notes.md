@@ -1354,7 +1354,205 @@ Step 5
 
 ## View,CTE,with check view
 
+### 🔹 1. What is a VIEW in MySQL?
 
+A VIEW is a virtual table based on a SQL query.
+
+- 👉 It does NOT store data
+- 👉 It stores only the query
+
+🔹 Basic Syntax
+
+```sql
+CREATE VIEW view_name AS
+SELECT column1, column2
+FROM table_name
+WHERE condition;
+```
+
+🔹 Practical Example
+
+🎯 Tables
+```
+employees(id, name, salary, department_id)
+```
+
+🔹 Create View
+```sql
+CREATE VIEW high_salary_employees AS
+SELECT id, name, salary
+FROM employees
+WHERE salary > 50000;
+```
+
+🔹 Use View
+```sql
+SELECT * FROM high_salary_employees;
+```
+
+👉 Acts like a table!
+
+🔹 Why We Use Views
+
+✅ 1. Simplify Complex Queries
+
+Instead of writing joins every time
+
+✅ 2. Security
+
+Hide sensitive columns
+
+### 🔹 2. View with CHECK OPTION
+
+👉 This ensures that INSERT/UPDATE must follow the view condition
+
+🔹 Syntax
+```sql
+CREATE VIEW view_name AS
+SELECT ...
+FROM ...
+WHERE condition
+WITH CHECK OPTION;
+```
+
+🔹 Practical Example 🔥
+```sql
+CREATE VIEW high_salary_employees AS
+SELECT id, name, salary
+FROM employees
+WHERE salary > 50000
+WITH CHECK OPTION;
+```
+
+🔹 Valid Insert ✅
+```sql
+INSERT INTO high_salary_employees (id, name, salary)
+VALUES (101, 'Meet', 60000);
+```
+
+✔ Works because salary > 50000
+
+🔹 Invalid Insert ❌
+```sql
+INSERT INTO high_salary_employees (id, name, salary)
+VALUES (102, 'Raj', 30000);
+```
+
+❌ ERROR — violates condition
+
+### 🔹 3. Types of CHECK OPTION
+
+1️⃣ LOCAL
+- Checks only current view
+2️⃣ CASCADED (default)
+- Checks all underlying views
+
+Example:
+```sql
+WITH CASCADED CHECK OPTION
+```
+
+### 🔹 4. Limitations of Views ⚠️
+
+- ❌ Cannot always update (depends on query)
+- ❌ No indexes
+- ❌ Complex views = slower performance
+
+### 🔹 5. What is CTE (Common Table Expression)?
+
+- 👉 A CTE is a temporary result set
+- 👉 Defined using WITH
+- 👉 Exists only during query execution
+
+🔹 Syntax
+```sql
+WITH cte_name AS (
+    SELECT ...
+)
+SELECT * FROM cte_name;
+```
+
+### 🔹 6. Basic CTE Example
+```sql
+WITH high_salary AS (
+    SELECT id, name, salary
+    FROM employees
+    WHERE salary > 50000
+)
+SELECT * FROM high_salary;
+```
+
+🔥 Why CTE is Powerful
+
+✅ 1. Readability
+- Cleaner than subqueries
+
+✅ 2. Reusability
+- Use same result multiple times
+
+✅ 3. Recursive Queries support
+
+🔹 7. CTE vs Subquery 🧠
+
+| Feature     | CTE  | Subquery |
+| ----------- | ---- | -------- |
+| Readability | High | Low      |
+| Reuse       | Yes  | No       |
+| Recursive   | Yes  | No       |
+
+### 🔹 8. Advanced CTE Example 🔥
+
+🎯 Find employees with above average salary
+
+```sql
+WITH avg_salary AS (
+    SELECT AVG(salary) AS avg_sal FROM employees
+)
+SELECT e.name, e.salary
+FROM employees e, avg_salary a
+WHERE e.salary > a.avg_sal;
+```
+
+### 🔹 9. Recursive CTE 🔥🔥
+
+👉 Used for hierarchical data
+
+Example: Employee Hierarchy
+
+```sql
+WITH RECURSIVE emp_hierarchy AS (
+    -- Base case
+    SELECT id, name, manager_id
+    FROM employees
+    WHERE manager_id IS NULL
+
+    UNION ALL
+
+    -- Recursive case
+    SELECT e.id, e.name, e.manager_id
+    FROM employees e
+    JOIN emp_hierarchy eh ON e.manager_id = eh.id
+)
+SELECT * FROM emp_hierarchy;
+```
+
+### 🔹 12. Interview Tricky Questions 💡
+
+❓ Can we update a view?
+- 👉 YES (only simple views)
+
+❓ Difference between View & Table?
+- 👉 View = virtual
+- 👉 Table = physical
+
+❓ CTE vs View?
+- 👉 CTE = temporary
+- 👉 View = permanent
+
+### 🔥 Final Understanding
+- View = saved query
+- View + Check = controlled data modification
+- CTE = temporary + powerful query structuring
 ------------------------------------------------------------------------
 
 ##  Keys
@@ -1637,11 +1835,281 @@ REVOKE ALL PRIVILEGES ON employees FROM 'meet'@'localhost';
 
 ------------------------------------------------------------------------
 
-##  Transaction (TCL)
+##  Transaction Control Language (TCL)
+
+TCL is used to control transactions in a database
+
+👉 A transaction = a group of SQL operations treated as one unit of work
+
+Example:
+
+- Transfer money from Account A → Account B
+
+This involves:
+- Deduct from A
+- Add to B
+
+✔ Either both happen
+❌ Or none happen (to maintain consistency)
+
+### 🔹 Why TCL is Important?
+
+Because of ACID properties:
+
+- Atomicity → All or nothing
+- Consistency → Data remains valid
+- Isolation → Transactions don’t interfere
+- Durability → Once committed, changes are permanent
+
+### 🔹 TCL Commands (Main 4)
+
+- START TRANSACTION / BEGIN
+- COMMIT
+- ROLLBACK
+- SAVEPOINT
+
+### 🔥 Let’s Learn One by One with Practical Examples
+
+### 1️⃣ START TRANSACTION / BEGIN
+
+👉 Starts a transaction
+
+```sql
+START TRANSACTION;
+```
+
+or
+
+```sql
+BEGIN;
+```
+
+💡 Example
+```sql
+START TRANSACTION;
+
+UPDATE accounts 
+SET balance = balance - 1000 
+WHERE id = 1;
+
+UPDATE accounts 
+SET balance = balance + 1000 
+WHERE id = 2;
+```
+
+👉 At this point:
+
+Changes are NOT permanent yet
+
+### 2️⃣ COMMIT
+
+👉 Saves changes permanently
+
+```sql
+COMMIT;
+```
+
+💡 Example
+
+```sql
+START TRANSACTION;
+
+UPDATE accounts 
+SET balance = balance - 1000 
+WHERE id = 1;
+
+UPDATE accounts 
+SET balance = balance + 1000 
+WHERE id = 2;
+
+COMMIT;
+```
+
+✔ Now changes are permanent
+
+### 3️⃣ ROLLBACK
+
+👉 Undo all changes in the transaction
+
+```sql
+ROLLBACK;
+```
+
+💡 Example (Error Scenario)
+
+```sql
+START TRANSACTION;
+
+UPDATE accounts 
+SET balance = balance - 1000 
+WHERE id = 1;
+
+-- ERROR occurs here ❌
+
+ROLLBACK;
+```
+
+✔ Everything goes back to original state
+
+### 4️⃣ SAVEPOINT
+
+👉 Create a checkpoint inside a transaction
+
+💡 Example
+
+```sql
+START TRANSACTION;
+
+UPDATE accounts SET balance = balance - 1000 WHERE id = 1;
+
+SAVEPOINT sp1;
+
+UPDATE accounts SET balance = balance + 1000 WHERE id = 2;
+
+-- Suppose something goes wrong
+
+ROLLBACK TO sp1;
+
+COMMIT;
+```
+
+👉 Result:
+
+- First update remains
+- Second update is undone
+
+### 🔥 Full Practical Example
+
+🏦 Bank Transfer System
+
+```sql
+START TRANSACTION;
+
+-- Step 1: Deduct money
+UPDATE accounts 
+SET balance = balance - 500 
+WHERE id = 1;
+
+-- Step 2: Add money
+UPDATE accounts 
+SET balance = balance + 500 
+WHERE id = 2;
+
+-- Check condition
+-- If something wrong → rollback
+-- Otherwise → commit
+
+COMMIT;
+```
+
+### ⚠️ Important Notes
+
+1. Auto Commit Mode
+
+MySQL by default:
+
+```
+SET autocommit = 1;
+```
+
+👉 Every query is committed automatically
+
+To disable:
+```
+SET autocommit = 0;
+```
+
+2. When ROLLBACK Doesn’t Work ❌
+
+Rollback works only when:
+
+- Transaction is not committed
+- DDL Commands (Craete,Alter,Truncate,Drop) Can't be Rollback
+- Table uses InnoDB engine
+
 
 ------------------------------------------------------------------------
 
+## Generated Column or Calculated Column
 
-## Generated Column
+A Generated Column is a column whose value is automatically computed from other columns using an expression.
+
+👉 You don’t insert/update it manually — MySQL calculates it.
+
+### 🔹 Simple Idea
+- total_price = quantity * price
+
+Instead of calculating this in your application every time, you let MySQL handle it.
+
+### 🔹 2. Types of Generated Columns
+
+MySQL supports 2 types:
+
+### 1️⃣ Virtual Column:-
+- Not stored physically
+- Calculated on the fly
+- Uses less storage
+- Slightly slower when reading
+
+### 2️⃣ Stored Column:-
+- Stored physically in table
+- Takes storage
+- Faster reads
+
+### 🔥 Syntax
+
+```sql
+column_name data_type 
+GENERATED ALWAYS AS (expression)
+[VIRTUAL | STORED]
+```
+
+### 🔹 3. First Practical Example
+
+🎯 Scenario: Orders table
+
+```sql
+CREATE TABLE orders (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    price DECIMAL(10,2),
+    quantity INT,
+
+    total_price DECIMAL(10,2) 
+    GENERATED ALWAYS AS (price * quantity) STORED
+);
+```
+
+🔹 Insert Data
+
+```sql
+INSERT INTO orders (price, quantity)
+VALUES (100, 2), (50, 5);
+```
+
+🔹 Output
+```sql
+SELECT * FROM orders;
+```
+
+| id | price | quantity | total_price |
+| -- | ----- | -------- | ----------- |
+| 1  | 100   | 2        | 200         |
+| 2  | 50    | 5        | 250         |
+
+👉 You never inserted total_price, MySQL calculated it.
+
+### 🔹 4. Virtual vs Stored
+
+| Feature       | Virtual           | Stored            |
+| ------------- | ----------------- | ----------------- |
+| Storage       | ❌ No              | ✅ Yes             |
+| Performance   | Slower read       | Faster read       |
+| Index allowed | Limited           | Yes               |
+| Use case      | Lightweight logic | Heavy computation |
+
+## Calculated Column is same as Generated Column In SQL Server It is call as Calculated Column 
+
+Instead of stored we have to write persist when creating table to store data physically
+
 
 ------------------------------------------------------------------------
