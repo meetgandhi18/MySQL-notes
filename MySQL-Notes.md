@@ -245,6 +245,17 @@ All rows + count column
 - ❌ Slightly complex to understand
 - ❌ Can be slower on large datasets without indexing
 - ❌ Requires MySQL 8+
+
+### Where we can write window function(Partition by)
+
+#### ✅ 1. SELECT Clause
+```sql
+SELECT name,
+       department_id,
+       COUNT(*) OVER (PARTITION BY department_id) AS total_emp
+FROM employees;
+```
+
 ------------------------------------------------------------------------
 
 ## Subqueries
@@ -1329,6 +1340,14 @@ Step 5
 
 ------------------------------------------------------------------------
 
+## Triggers:-
+
+------------------------------------------------------------------------
+
+## Cursor:-
+
+------------------------------------------------------------------------
+
 ##  SQL v/s NoSQL
 
 ------------------------------------------------------------------------
@@ -1356,9 +1375,269 @@ Step 5
 
 ##  DCL (Data control Language)
 
+### 🔐 1. What is DCL?
+
+DCL (Data Control Language) is used to control access to data in the database.
+
+👉 In simple terms:
+- DCL decides WHO can do WHAT on WHICH data
+
+### 🎯 Why DCL is Important?
+
+Imagine:
+
+- You have a production database 💰
+- Developers should only read data 👀
+- Admins can modify everything ⚙️
+- Interns should not delete anything ❌
+
+👉 DCL helps you enforce this.
+
+### 🧠 Core Concepts Behind DCL
+
+Before commands, understand these:
+
+1. Users 👤
+
+Database accounts (e.g., meet_user, admin)
+
+2. Privileges 🔑
+
+Permissions like:
+
+- SELECT
+- INSERT
+- UPDATE
+- DELETE
+- ALL
+
+3. Objects 📦
+
+Things on which permissions apply:
+
+- Tables
+- Views
+- Databases
+- Procedures
+
+### Types Of Permissions
+
+### Data Permissions (most common)
+
+Used on tables/views:
+- SELECT → Read data
+- INSERT → Add data
+- UPDATE → Modify data
+- DELETE → Remove data
+
+Control data access
+
+#### Execution Permissions
+
+EXECUTE → Run stored code
+
+✔ Allows:
+- CALL procedure
+- Use stored functions
+
+#### Structure Permissions
+
+CREATE → Create new objects
+
+✔ Allows:
+- CREATE TABLE
+- CREATE VIEW
+- CREATE DATABASE
+- CREATE PROCEDURE/FUNCTION
+
+#### ALTER → modify existing tables (Broad permission)
+
+```sql
+GRANT ALTER ON mydb.customers TO 'dev_user';
+```
+
+Allows:
+- Add column
+- Drop column
+- Modify column type
+- Add/remove constraints  (FK, PK, etc.)
+- Rename table
+
+You cannot restrict ALTER to only one action
+
+This is all-or-nothing
+
+#### DROP → delete objects
+
+✔ Allows:
+- DROP TABLE
+- DROP DATABASE
+- DROP VIEW
+
+#### INDEX → Manage indexes
+
+✔ Allows:
+- CREATE INDEX
+- DROP INDEX
+
+#### TRIGGER → Manage triggers
+✔ Allows:
+- CREATE TRIGGER
+- DROP TRIGGER
+
+#### How To Create a user 
+
+Creating a User:-
+
+Syntax:-
+```sql
+CREATE USER 'username'@'host' IDENTIFIED BY 'password';
+```
+
+What is 'host'?
+| Host value       | Meaning                |
+| ---------------- | ---------------------- |
+| `'localhost'`    | Only from same machine |
+| `'%'`            | From anywhere          |
+| `'192.168.1.10'` | Specific IP            |
+
+### Removing (Deleting) a User
+```sql
+DROP USER 'username'@'host';
+```
+Dropping user removes everything
+- Permissions gone
+- Access gone
+- No recovery (unless recreated)
+
+User = username + host
+
+These are different users:
+- 'usr'@'localhost'
+- 'usr'@'%'
+
+### Change password
+
+```sql
+ALTER USER 'usr' IDENTIFIED BY 'newpass';
+```
+
+### Lock user (disable login)
+```sql
+ALTER USER 'usr'@'localhost' ACCOUNT LOCK;
+```
+
+### Unlock user :
+```sql
+ALTER USER 'usr'@'localhost' ACCOUNT UNLOCK;
+```
+
+### ⚡ 2. Main DCL Commands
+
+There are only 2 main commands (but very powerful):
+
+### ✅ 1. GRANT
+
+🔹 Purpose:
+
+Give permissions to a user
+
+📌 Syntax:
+
+```sql
+GRANT privilege_name
+ON object_name
+TO user;
+```
+
+### 💡 Example 1: Give SELECT permission
+
+```sql
+GRANT SELECT ON employees TO 'meet'@'localhost';
+```
+
+👉 Meaning:
+
+- User meet can only read data
+- Cannot insert/update/delete
+
+### 💡 Example 2: Multiple permissions
+
+```sql
+GRANT SELECT, INSERT ON employees TO 'meet'@'localhost';
+```
+
+👉 Now user can:
+
+- Read data
+- Insert data
+
+### 💡 Example 3: Full access
+
+```sql
+GRANT ALL PRIVILEGES ON employees TO 'meet'@'localhost';
+```
+
+### 💡 Example 4: Entire database access
+
+```sql
+GRANT ALL PRIVILEGES ON company_db.* TO 'meet'@'localhost';
+```
+👉 * means all tables
+
+### 💡 Example 5: Grant with ability to further grant
+
+```sql
+GRANT SELECT ON employees TO 'meet'@'localhost' WITH GRANT OPTION;
+```
+
+👉 Now meet can:
+- Give SELECT permission to others 😎
+
+### ❌ 2. REVOKE
+
+🔹 Purpose:
+
+Remove permissions
+
+📌 Syntax:
+```sql
+REVOKE privilege_name
+ON object_name
+FROM user;
+```
+
+### 💡 Example 1:
+```sql
+REVOKE INSERT ON employees FROM 'meet'@'localhost';
+```
+👉 User can no longer insert
+
+### 💡 Example 2: Remove all permissions
+```sql
+REVOKE ALL PRIVILEGES ON employees FROM 'meet'@'localhost';
+```
+
+### 🔍 3. Types of Privileges (Important)
+
+📊 Table-level privileges
+- SELECT
+- INSERT
+- UPDATE
+- DELETE
+
+🛠️ Administrative privileges
+- CREATE
+- DROP
+- ALTER
+
+🔥 Special privileges
+- ALL PRIVILEGES
+- GRANT OPTION
+
 ------------------------------------------------------------------------
 
-##  Transactionc (TCL)
+##  Transaction (TCL)
 
 ------------------------------------------------------------------------
 
