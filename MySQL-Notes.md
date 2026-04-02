@@ -1995,90 +1995,6 @@ Rollback works only when:
 - DDL Commands (Craete,Alter,Truncate,Drop) Can't be Rollback
 - Table uses InnoDB engine
 
-
-------------------------------------------------------------------------
-
-## Generated Column or Calculated Column
-
-A Generated Column is a column whose value is automatically computed from other columns using an expression.
-
-👉 You don’t insert/update it manually — MySQL calculates it.
-
-### 🔹 Simple Idea
-- total_price = quantity * price
-
-Instead of calculating this in your application every time, you let MySQL handle it.
-
-### 🔹 2. Types of Generated Columns
-
-MySQL supports 2 types:
-
-### 1️⃣ Virtual Column:-
-- Not stored physically
-- Calculated on the fly
-- Uses less storage
-- Slightly slower when reading
-
-### 2️⃣ Stored Column:-
-- Stored physically in table
-- Takes storage
-- Faster reads
-
-### 🔥 Syntax
-
-```sql
-column_name data_type 
-GENERATED ALWAYS AS (expression)
-[VIRTUAL | STORED]
-```
-
-### 🔹 3. First Practical Example
-
-🎯 Scenario: Orders table
-
-```sql
-CREATE TABLE orders (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    price DECIMAL(10,2),
-    quantity INT,
-
-    total_price DECIMAL(10,2) 
-    GENERATED ALWAYS AS (price * quantity) STORED
-);
-```
-
-🔹 Insert Data
-
-```sql
-INSERT INTO orders (price, quantity)
-VALUES (100, 2), (50, 5);
-```
-
-🔹 Output
-```sql
-SELECT * FROM orders;
-```
-
-| id | price | quantity | total_price |
-| -- | ----- | -------- | ----------- |
-| 1  | 100   | 2        | 200         |
-| 2  | 50    | 5        | 250         |
-
-👉 You never inserted total_price, MySQL calculated it.
-
-### 🔹 4. Virtual vs Stored
-
-| Feature       | Virtual           | Stored            |
-| ------------- | ----------------- | ----------------- |
-| Storage       | ❌ No              | ✅ Yes             |
-| Performance   | Slower read       | Faster read       |
-| Index allowed | Limited           | Yes               |
-| Use case      | Lightweight logic | Heavy computation |
-
-#### Calculated Column is same as Generated Column In SQL Server It is call as Calculated Column 
-
-Instead of stored we have to write persist when creating table to store data physically
-
 ------------------------------------------------------------------------
 
 ## Locking
@@ -2374,7 +2290,9 @@ locks id=2 → then id=1
 
 👉 💥 Boom → deadlock
 
-### 🔥 How to Prevent Deadlocks
+------------------------------------------------------------------------
+
+## Deadlocks Prevention Techniques
 
 ✅ 1. Always lock rows in same order
 
@@ -2420,6 +2338,344 @@ UPDATE ...
 👉 Without index:
 
 - MySQL locks many rows → increases chances
+
+------------------------------------------------------------------------
+
+## Transaction Anomalies:-
+
+Transaction anomalies are problems or inconsistencies that occur when multiple transactions run concurrently in a database
+without proper isolation.
+
+👉 In simple terms:
+
+When two or more users access/modify data at the same time, wrong or unexpected results can happen.
+
+### 🔹 Why Do Transaction Anomalies Occur?
+
+Because:
+
+- Databases allow concurrent execution
+- But without proper control → data becomes inconsistent
+
+👉 That’s why MySQL provides Isolation Levels to prevent them.
+
+### 🔹 Types of Transaction Anomalies
+
+### 1️⃣ Dirty Read
+
+👉 One transaction reads uncommitted data from another transaction
+
+✅ Example
+
+```sql
+-- Transaction A
+START TRANSACTION;
+UPDATE accounts SET balance = 500 WHERE id = 1;
+-- NOT COMMITTED
+
+-- Transaction B
+SELECT balance FROM accounts WHERE id = 1;
+```
+
+👉 Transaction B sees 500
+
+BUT…
+```sql
+-- Transaction A
+ROLLBACK;
+```
+
+👉 Actual value is still 1000
+
+❌ Problem:
+
+B read data that never actually existed
+
+### 2️⃣ Non-Repeatable Read
+
+👉 Same query gives different results within same transaction
+
+✅ Example
+
+```sql
+-- Transaction A
+START TRANSACTION;
+SELECT salary FROM employees WHERE id = 1;  -- 50000
+
+-- Transaction B
+UPDATE employees SET salary = 60000 WHERE id = 1;
+COMMIT;
+
+-- Transaction A
+SELECT salary FROM employees WHERE id = 1;  -- 60000
+```
+
+❌ Problem:
+
+Data changed during transaction
+
+### 3️⃣ Phantom Read
+
+👉 New rows appear/disappear in repeated queries
+
+✅ Example
+
+```sql
+-- Transaction A
+SELECT * FROM employees WHERE salary > 50000;
+
+-- Transaction B
+INSERT INTO employees VALUES (5, 'New', 70000);
+COMMIT;
+
+-- Transaction A
+SELECT * FROM employees WHERE salary > 50000;
+```
+
+👉 Now extra row appears
+
+❌ Problem:
+
+Result set changed unexpectedly
+
+### 4️⃣ Lost Update
+
+👉 Two transactions update same data → one update is lost
+
+✅ Example
+
+```sql
+-- Initial balance = 1000
+
+-- Transaction A
+SELECT balance = 1000
+UPDATE balance = 900
+
+-- Transaction B
+SELECT balance = 1000
+UPDATE balance = 800
+```
+
+👉 Final value = 800
+
+❌ Problem:
+
+A’s update is lost
+
+### 🔹 How MySQL Solves These?
+
+| Isolation Level           | Prevents               |
+| ------------------------- | ---------------------- |
+| READ UNCOMMITTED          | Nothing                |
+| READ COMMITTED            | Dirty Read             |
+| REPEATABLE READ (default) | Dirty + Non-repeatable |
+| SERIALIZABLE              | All anomalies          |
+
+### 🔹 Simple Summary Table
+
+| Anomaly             | Problem               |
+| ------------------- | --------------------- |
+| Dirty Read          | Read uncommitted data |
+| Non-repeatable Read | Same row changes      |
+| Phantom Read        | New rows appear       |
+| Lost Update         | Update overwritten    |
+
+------------------------------------------------------------------------
+
+## Isolation Levels
+
+👉 Isolation levels define:
+
+“How much one transaction can see another transaction’s data”
+
+### 🔹 1. READ UNCOMMITTED
+
+👉 Lowest level (almost no protection)
+
+❌ Allows:
+- Dirty Read ✅
+- Non-repeatable Read ✅
+- Phantom Read ✅
+
+✅ Example
+```sql
+-- Transaction A
+START TRANSACTION;
+UPDATE accounts SET balance = 500 WHERE id = 1;
+
+-- Transaction B
+SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+SELECT balance FROM accounts WHERE id = 1;
+```
+
+👉 B can see uncommitted data (500) ❌
+
+🧠 Use case
+
+- Almost NEVER used in real systems
+
+### 🔹 2. READ COMMITTED
+
+👉 Only sees committed data
+
+❌ Prevents:
+- Dirty Read ❌
+
+⚠️ Still allows:
+- Non-repeatable Read ✅
+- Phantom Read ✅
+
+✅ Example
+
+```sql
+-- Transaction A
+START TRANSACTION;
+SELECT salary FROM employees WHERE id = 1; -- 50000
+
+-- Transaction B
+UPDATE employees SET salary = 60000 WHERE id = 1;
+COMMIT;
+
+-- Transaction A again
+SELECT salary FROM employees WHERE id = 1; -- 60000 ❌ changed
+```
+
+🧠 Use case
+- Used in systems like PostgreSQL default
+
+### 🔹 3. REPEATABLE READ (🔥 MySQL Default)
+
+👉 Same data remains consistent within transaction
+
+❌ Prevents:
+- Dirty Read ❌
+- Non-repeatable Read ❌
+
+⚠️ Phantom Read?
+
+- 👉 MySQL prevents it using gap locks
+
+✅ Example
+
+```sql
+-- Transaction A
+START TRANSACTION;
+SELECT salary FROM employees WHERE id = 1; -- 50000
+
+-- Transaction B
+UPDATE employees SET salary = 60000 WHERE id = 1;
+COMMIT;
+
+-- Transaction A again
+SELECT salary FROM employees WHERE id = 1; -- STILL 50000 ✅
+```
+
+👉 MySQL uses MVCC (snapshot)
+
+🧠 Key concept:
+
+You see a consistent snapshot of data
+
+### 🔹 4. SERIALIZABLE
+
+👉 Highest level (strictest)
+
+❌ Prevents:
+- All anomalies ❌
+
+✅ Behavior
+```sql
+SELECT * FROM employees WHERE salary > 50000;
+```
+
+👉 MySQL locks range → no insert allowed
+
+⚠️ Drawback:
+- Slow performance
+- High locking
+
+------------------------------------------------------------------------
+
+## Generated Column or Calculated Column
+
+A Generated Column is a column whose value is automatically computed from other columns using an expression.
+
+👉 You don’t insert/update it manually — MySQL calculates it.
+
+### 🔹 Simple Idea
+- total_price = quantity * price
+
+Instead of calculating this in your application every time, you let MySQL handle it.
+
+### 🔹 2. Types of Generated Columns
+
+MySQL supports 2 types:
+
+### 1️⃣ Virtual Column:-
+- Not stored physically
+- Calculated on the fly
+- Uses less storage
+- Slightly slower when reading
+
+### 2️⃣ Stored Column:-
+- Stored physically in table
+- Takes storage
+- Faster reads
+
+### 🔥 Syntax
+
+```sql
+column_name data_type 
+GENERATED ALWAYS AS (expression)
+[VIRTUAL | STORED]
+```
+
+### 🔹 3. First Practical Example
+
+🎯 Scenario: Orders table
+
+```sql
+CREATE TABLE orders (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    price DECIMAL(10,2),
+    quantity INT,
+
+    total_price DECIMAL(10,2) 
+    GENERATED ALWAYS AS (price * quantity) STORED
+);
+```
+
+🔹 Insert Data
+
+```sql
+INSERT INTO orders (price, quantity)
+VALUES (100, 2), (50, 5);
+```
+
+🔹 Output
+```sql
+SELECT * FROM orders;
+```
+
+| id | price | quantity | total_price |
+| -- | ----- | -------- | ----------- |
+| 1  | 100   | 2        | 200         |
+| 2  | 50    | 5        | 250         |
+
+👉 You never inserted total_price, MySQL calculated it.
+
+### 🔹 4. Virtual vs Stored
+
+| Feature       | Virtual           | Stored            |
+| ------------- | ----------------- | ----------------- |
+| Storage       | ❌ No              | ✅ Yes             |
+| Performance   | Slower read       | Faster read       |
+| Index allowed | Limited           | Yes               |
+| Use case      | Lightweight logic | Heavy computation |
+
+#### Calculated Column is same as Generated Column In SQL Server It is call as Calculated Column 
+
+Instead of stored we have to write persist when creating table to store data physically
 
 ------------------------------------------------------------------------
 
@@ -2532,6 +2788,165 @@ ON DUPLICATE KEY UPDATE
     name = new.name,
     salary = new.salary;
 ```
+------------------------------------------------------------------------
+
+## Dump in MySQL
+
+### 🔹 1. What is a Dump?
+
+👉 A dump is:
+
+A file containing SQL statements (like CREATE, INSERT) that recreate your database
+
+📌 Simple meaning:
+- It’s a backup of your database
+- Stored as a .sql file
+
+### 🔹 2. Why Do We Use Dump?
+
+✅ Backup
+- Save data before risky changes
+✅ Migration
+- Move data from one server to another
+✅ Recovery
+- Restore data if something goes wrong
+
+## 🔹 3. How Dump Looks Internally
+
+A dump file contains SQL like:
+
+```sql
+CREATE TABLE employees (
+    id INT,
+    name VARCHAR(50)
+);
+
+INSERT INTO employees VALUES (1, 'Meet');
+INSERT INTO employees VALUES (2, 'Raj');
+```
+
+👉 When you run this file → database is recreated
+
+### 🔹 4. Tool Used: mysqldump
+
+👉 MySQL provides a command-line tool called:
+
+mysqldump
+
+✅ Dump a single database
+```bash
+mysqldump -u root -p company_db > company_db.sql
+```
+
+✅ Dump specific table
+```bash
+mysqldump -u root -p company_db employees > employees.sql
+```
+
+✅ Dump all databases
+```bash
+mysqldump -u root -p --all-databases > all_db.sql
+```
+
+### 🔹 5. How to Restore Dump
+```bash
+mysql -u root -p company_db < company_db.sql
+```
+
+👉 This will recreate:
+- Tables
+- Data
+- Structure
+
+### 🔹 6. Types of Dump
+
+🔸 Logical Dump
+
+- SQL statements (mysqldump)
+- Human-readable
+- Portable
+
+🔸 Physical Dump (Advanced)
+
+- Copy actual data files
+- Faster but complex
+
+### 🔹 7. Important Options 🔥
+
+- 👉 But a duplicate key conflict happens (PRIMARY KEY or UNIQUE KEY)
+- 👉 Instead of throwing an error, MySQL updates the existing row
+
+### 🔹 1. Basic Idea
+
+```bash
+mysqldump -u root -p --no-data db_name > structure.sql
+```
+👉 Only table structure
+
+```bash
+mysqldump -u root -p --no-create-info db_name > data.sql
+```
+👉 Only data
+
+```bash
+mysqldump -u root -p --where="salary > 50000" db_name employees > filtered.sql
+```
+👉 Partial dump
+
+------------------------------------------------------------------------
+## set v/s enum
+
+### 🔹 1. ENUM in MySQL
+
+👉 What it is:
+- A column that can store only ONE value from a predefined list
+
+✅ Syntax:
+```sql
+CREATE TABLE users (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    status ENUM('active', 'inactive', 'banned')
+);
+```
+📌 Example Insert:
+```sql
+INSERT INTO users (status) VALUES ('active');
+```
+
+🧠 Key Point:
+- Only one value allowed
+- Stored internally as index (number) → efficient
+
+### 🔹 2. SET in MySQL
+
+👉 What it is:
+- A column that can store MULTIPLE values from a predefined list
+
+✅ Syntax:
+```sql
+CREATE TABLE users (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    roles SET('admin', 'editor', 'viewer')
+);
+```
+📌 Example Insert:
+```sql
+INSERT INTO users (roles) VALUES ('admin,editor');
+```
+
+🧠 Key Point:
+- Can store multiple values at once
+- Stored as bitmask internally
+
+### 🔥 Difference: ENUM vs SET
+
+| Feature        | ENUM             | SET              |
+| -------------- | ---------------- | ---------------- |
+| Values allowed | Only ONE         | Multiple         |
+| Storage        | Index (1,2,3...) | Bitmask          |
+| Use case       | Status, type     | Tags, roles      |
+| Example        | active/inactive  | admin, editor    |
+| Complexity     | Simple           | Slightly complex |
 
 ------------------------------------------------------------------------
 
