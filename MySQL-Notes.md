@@ -1336,22 +1336,6 @@ Step 5
 
 ------------------------------------------------------------------------
 
-##  Dataypes :-
-
-------------------------------------------------------------------------
-
-## Triggers:-
-
-------------------------------------------------------------------------
-
-## Cursor:-
-
-------------------------------------------------------------------------
-
-##  SQL v/s NoSQL
-
-------------------------------------------------------------------------
-
 ## View,CTE,with check view
 
 ### 🔹 1. What is a VIEW in MySQL?
@@ -1553,22 +1537,6 @@ SELECT * FROM emp_hierarchy;
 - View = saved query
 - View + Check = controlled data modification
 - CTE = temporary + powerful query structuring
-------------------------------------------------------------------------
-
-##  Keys
-
-------------------------------------------------------------------------
-
-## Partitioning
-
-------------------------------------------------------------------------
-
-## ACID
-
-------------------------------------------------------------------------
-
-## DBEngines
-
 ------------------------------------------------------------------------
 
 ##  DCL (Data control Language)
@@ -2107,9 +2075,494 @@ SELECT * FROM orders;
 | Index allowed | Limited           | Yes               |
 | Use case      | Lightweight logic | Heavy computation |
 
-## Calculated Column is same as Generated Column In SQL Server It is call as Calculated Column 
+#### Calculated Column is same as Generated Column In SQL Server It is call as Calculated Column 
 
 Instead of stored we have to write persist when creating table to store data physically
 
+------------------------------------------------------------------------
+
+## Locking
+
+### 🔹 What is Locking in MySQL?
+
+👉 Locking = restricting access to data so multiple users don’t corrupt it
+
+When multiple queries run at the same time:
+- Without locks → ❌ wrong data (race conditions)
+- With locks → ✅ safe & consistent data
+
+### 🔥 Simple Real-Life Example
+
+Two users trying to withdraw money:
+```
+Balance = 1000
+```
+
+- User A → withdraw 800
+- User B → withdraw 500
+
+Without locking:
+- 👉 Both read 1000 → total deducted = 1300 ❌
+
+With locking:
+- 👉 One waits → correct result ✅
+
+### 🔹 Types of Locks in MySQL
+
+### 1️⃣ Table-Level Lock
+
+👉 Entire table is locked
+
+Example:
+
+```sql
+LOCK TABLES employees WRITE;
+
+SELECT * FROM employees; -- others cannot read/write
+```
+Unlock:
+
+```sql
+UNLOCK TABLES;
+```
+
+#### 🔥 Behavior
+
+| Lock Type | Effect                     |
+| --------- | -------------------------- |
+| READ      | Others can read, not write |
+| WRITE     | No one else can read/write |
+
+#### ⚠️ Problem
+
+- 👉 Slow in high-traffic apps
+- 👉 Not used much with InnoDB
+
+### 2️⃣ Row-Level Lock (Most Important)
+
+- 👉 Only specific rows are locked (InnoDB)
+
+Example
+```sql
+START TRANSACTION;
+
+SELECT * FROM accounts 
+WHERE id = 1 
+FOR UPDATE;
+```
+
+👉 This locks only that row
+
+🔥 Now:
+
+Another query:
+
+UPDATE accounts SET balance = 500 WHERE id = 1;
+
+👉 ⏳ It will WAIT until first transaction finishes
+
+### 3️⃣ Shared Lock (S Lock)
+
+👉 Read lock
+
+```sql
+SELECT * FROM accounts WHERE id = 1 LOCK IN SHARE MODE;
+```
+
+Behavior:
+- ✅ Others can read
+- ❌ Others cannot write
+
+### 4️⃣ Exclusive Lock (X Lock)
+
+👉 Write lock
+
+```sql
+SELECT * FROM accounts WHERE id = 1 FOR UPDATE;
+```
+
+Behavior:
+- ❌ No read (in some cases)
+- ❌ No write
+- Full control
+
+🔥 Difference (Important)
+
+| Lock           | Read      | Write     |
+| -------------- | --------- | --------- |
+| Shared Lock    | ✅ Allowed | ❌ Blocked |
+| Exclusive Lock | ❌ Blocked | ❌ Blocked |
+
+### 5️⃣ Intent Locks
+
+👉 Used internally by MySQL
+
+Types:
+- Intent Shared (IS)
+- Intent Exclusive (IX)
+
+👉 Helps MySQL manage row + table locks together
+
+You don’t write these manually
+
+### 6️⃣ Gap Lock
+
+👉 Locks a range of rows (even non-existing rows)
+
+```sql
+SELECT * FROM accounts 
+WHERE balance BETWEEN 1000 AND 2000 
+FOR UPDATE;
+```
+
+👉 Locks:
+
+- Existing rows
+- AND gaps between them
+
+Why?
+
+👉 Prevent phantom reads
+
+### 🔥 Types Summary
+
+| Lock Type      | Level    | Use             |
+| -------------- | -------- | --------------- |
+| Table Lock     | Table    | Old / MyISAM    |
+| Row Lock       | Row      | InnoDB          |
+| Shared Lock    | Row      | Read            |
+| Exclusive Lock | Row      | Write           |
+| Gap Lock       | Range    | Prevent phantom |
+| Intent Lock    | Internal | Optimization    |
+
+### 🔥 Practical Scenario
+
+🏦 Money Transfer
+
+```sql
+START TRANSACTION;
+
+SELECT balance FROM accounts 
+WHERE id = 1 FOR UPDATE;
+
+UPDATE accounts 
+SET balance = balance - 500 
+WHERE id = 1;
+
+UPDATE accounts 
+SET balance = balance + 500 
+WHERE id = 2;
+
+COMMIT;
+```
+
+------------------------------------------------------------------------
+
+## 🚨 Deadlock
+
+👉 A deadlock happens when:
+
+Two transactions are waiting for each other to release locks — and neither can proceed
+
+#### 🏦 Bank Accounts
+
+We have:
+```
+Account A → id = 1  
+Account B → id = 2
+```
+
+#### 🔥 Step-by-Step Deadlock Scenario
+
+👉 Transaction 1 (T1)
+```sql
+START TRANSACTION;
+
+UPDATE accounts 
+SET balance = balance - 100 
+WHERE id = 1;
+```
+👉 T1 locks Account A (id=1) 🔒
+
+👉 Transaction 2 (T2)
+```sql
+START TRANSACTION;
+
+UPDATE accounts 
+SET balance = balance - 200 
+WHERE id = 2;
+```
+👉 T2 locks Account B (id=2) 🔒
+
+👉 Now the Problem Starts
+
+T1 tries:
+```sql
+UPDATE accounts 
+SET balance = balance + 100 
+WHERE id = 2;
+```
+
+- 👉 ❌ Cannot proceed
+- 👉 Because T2 already locked id=2
+- 👉 T1 is now WAITING ⏳
+
+T2 tries:
+```sql
+UPDATE accounts 
+SET balance = balance + 200 
+WHERE id = 1;
+```
+
+- 👉 ❌ Cannot proceed
+- 👉 Because T1 already locked id=1
+- 👉 T2 is also WAITING ⏳
+
+#### 💥 DEADLOCK CREATED
+
+| Transaction | Holding Lock | Waiting For |
+| ----------- | ------------ | ----------- |
+| T1          | id=1         | id=2        |
+| T2          | id=2         | id=1        |
+
+- 👉 Circular dependency 🔁
+- 👉 No one can move forward
+
+#### 🔥 What MySQL Does
+
+- 👉 MySQL detects deadlock automatically
+- 👉 It kills one transaction
+
+Example error:
+```
+ERROR 1213 (40001): Deadlock found when trying to get lock; try restarting transaction
+```
+
+#### 🔄 What Happens Next?
+
+Suppose MySQL kills T2
+
+- T2 → ❌ ROLLBACK
+- T1 → ✅ Continues and commits
+
+#### 🔥 How to See Deadlock Info (Very Important)
+
+```
+SHOW ENGINE INNODB STATUS;
+```
+
+👉 Shows:
+
+- Which queries caused deadlock
+- Which transaction was killed
+
+### 🚨 Why Deadlocks Happen?
+
+Main reasons:
+
+1. ❌ Different order of locking
+
+T1:
+```
+locks id=1 → then id=2
+```
+
+T2:
+```
+locks id=2 → then id=1
+```
+
+👉 💥 Boom → deadlock
+
+### 🔥 How to Prevent Deadlocks
+
+✅ 1. Always lock rows in same order
+
+✔ Correct approach:
+
+```sql
+-- Both transactions follow same order
+
+UPDATE accounts WHERE id = 1;
+UPDATE accounts WHERE id = 2;
+```
+
+👉 No circular wait → no deadlock
+
+✅ 2. Use SELECT ... FOR UPDATE properly
+
+```sql
+START TRANSACTION;
+
+SELECT * FROM accounts 
+WHERE id IN (1,2) 
+ORDER BY id 
+FOR UPDATE;
+```
+
+👉 Locks rows in consistent order
+
+✅ 3. Keep transactions SHORT
+
+❌ Bad:
+
+```sql
+START TRANSACTION;
+-- do API call
+-- do logic
+UPDATE ...
+```
+
+👉 Locks held too long → deadlocks likely
+
+✅ 4. Proper indexing
+
+👉 Without index:
+
+- MySQL locks many rows → increases chances
+
+------------------------------------------------------------------------
+
+## Insert On Duplicate Key
+
+INSERT ... ON DUPLICATE KEY UPDATE in MySQL is a very powerful feature used to handle situations where:
+
+- 👉 You try to insert a row
+- 👉 But a duplicate key conflict happens (PRIMARY KEY or UNIQUE KEY)
+- 👉 Instead of throwing an error, MySQL updates the existing row
+
+### 🔹 1. Basic Idea
+
+👉 Normally:
+```sql
+INSERT INTO users (id, name) VALUES (1, 'Meet');
+```
+
+If id = 1 already exists ❌ → Error
+
+👉 With duplicate handling:
+
+```sql
+INSERT INTO users (id, name)
+VALUES (1, 'Meet')
+ON DUPLICATE KEY UPDATE name = 'Meet';
+```
+
+✔ If no duplicate → INSERT
+✔ If duplicate → UPDATE
+
+### 🔹 2. Practical Example
+
+Create table
+```sql
+CREATE TABLE users (
+    id INT PRIMARY KEY,
+    name VARCHAR(50),
+    salary INT
+);
+```
+
+Insert first time
+```sql
+INSERT INTO users VALUES (1, 'Raj', 50000);
+```
+
+Insert again with same PK
+```sql
+INSERT INTO users (id, name, salary)
+VALUES (1, 'Meet', 60000)
+ON DUPLICATE KEY UPDATE
+    name = VALUES(name),
+    salary = VALUES(salary);
+```
+
+🔍 What happens?
+- id = 1 already exists
+- Instead of error ❌
+
+👉 It updates row:
+```
+Before: (1, Raj, 50000)
+After : (1, Meet, 60000)
+```
+
+### 🔹 3. Important Syntax
+```sql
+INSERT INTO table_name (col1, col2)
+VALUES (val1, val2)
+ON DUPLICATE KEY UPDATE
+    col1 = new_value,
+    col2 = new_value;
+```
+
+### 🔹 4. What triggers "duplicate key"?
+
+This works when conflict happens on:
+
+- ✔ PRIMARY KEY
+- ✔ UNIQUE KEY
+
+Example:
+```
+UNIQUE(email)
+```
+
+If same email inserted → triggers update
+
+### 🔹 5. Using VALUES() (Important)
+
+```sql
+ON DUPLICATE KEY UPDATE
+name = VALUES(name)
+```
+
+👉 Means:
+
+Use the value from INSERT statement
+
+⚠️ Note (MySQL 8+):
+
+- VALUES() is deprecated
+- Use alias instead:
+
+```sql
+INSERT INTO users (id, name, salary)
+VALUES (1, 'Meet', 60000) AS new
+ON DUPLICATE KEY UPDATE
+    name = new.name,
+    salary = new.salary;
+```
+
+------------------------------------------------------------------------
+
+##  Keys
+
+------------------------------------------------------------------------
+
+## Partitioning
+
+------------------------------------------------------------------------
+
+## ACID
+
+------------------------------------------------------------------------
+
+## DBEngines
+
+------------------------------------------------------------------------
+
+##  Dataypes
+
+------------------------------------------------------------------------
+
+## Triggers
+
+------------------------------------------------------------------------
+
+## Cursor
+
+------------------------------------------------------------------------
+
+##  SQL v/s NoSQL
 
 ------------------------------------------------------------------------
