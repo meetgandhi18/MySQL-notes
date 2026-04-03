@@ -2950,6 +2950,84 @@ INSERT INTO users (roles) VALUES ('admin,editor');
 
 ------------------------------------------------------------------------
 
+## Cursor
+
+A cursor in MySQL is a database object used to retrieve and process query results one row at a time.
+
+- Normally, when you run a SELECT query, MySQL returns the entire result set at once. But sometimes (especially inside stored procedures), you need to process rows individually — that’s when a cursor is useful.
+
+### 🔹 Why Use a Cursor?
+
+Cursors are used when:
+- You need to process rows sequentially
+- You must apply row-by-row logic
+- Complex procedural logic is required inside a stored procedure
+
+### 🔹 How a Cursor Works in MySQL
+A cursor follows these steps:
+
+- DECLARE – Define the cursor
+- OPEN – Open the cursor
+- FETCH – Retrieve rows one by one
+- CLOSE – Close the cursor
+
+### 🔹 Example
+
+```sql
+DELIMITER //
+
+CREATE PROCEDURE example_cursor()
+BEGIN
+    DECLARE done INT DEFAULT FALSE;
+    DECLARE emp_name VARCHAR(100);
+
+    -- Declare cursor
+    DECLARE emp_cursor CURSOR FOR
+        SELECT name FROM employees;
+
+    -- Handle end of data
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+
+    -- Open cursor
+    OPEN emp_cursor;
+
+    read_loop: LOOP
+        -- Fetch row
+        FETCH emp_cursor INTO emp_name;
+
+        IF done THEN
+            LEAVE read_loop;
+        END IF;
+
+        -- Process each row
+        SELECT emp_name;
+    END LOOP;
+
+    -- Close cursor
+    CLOSE emp_cursor;
+END //
+```
+
+### 🔹 Important Notes
+
+MySQL cursors are:
+- ✔ Read-only
+- ✔ Forward-only (cannot go backward)
+
+Used only inside stored procedures, functions, or triggers
+
+Slower than normal SQL queries (because row-by-row processing is less efficient)
+
+### 🔹 When NOT to Use a Cursor
+
+If the task can be done using:
+- UPDATE, JOIN, GROUP BY
+- Set-based queries
+
+It’s usually better not to use a cursor because SQL is optimized for set-based operations.
+
+------------------------------------------------------------------------
+
 ##  Keys
 
 ------------------------------------------------------------------------
